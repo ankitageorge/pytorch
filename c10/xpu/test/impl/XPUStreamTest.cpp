@@ -67,11 +67,24 @@ TEST(XPUStreamTest, StreamBehavior) {
 
   auto [least_priority, greatest_priority] =
       c10::xpu::XPUStream::priority_range();
-  EXPECT_EQ(least_priority, 0);
-  EXPECT_TRUE(greatest_priority < 0);
+  EXPECT_EQ(least_priority, 1);
+  EXPECT_EQ(greatest_priority, -1);
 
   stream = c10::xpu::getStreamFromPool(/* isHighPriority */ true);
-  EXPECT_TRUE(stream.priority() < 0);
+  EXPECT_EQ(stream.priority(), -1);
+  stream = c10::xpu::getStreamFromPool(/* isHighPriority */ false);
+  EXPECT_EQ(stream.priority(), 0);
+
+  stream = c10::xpu::getStreamFromPool(-1);
+  EXPECT_EQ(stream.priority(), -1);
+  stream = c10::xpu::getStreamFromPool(-10);
+  EXPECT_EQ(stream.priority(), -1);
+  stream = c10::xpu::getStreamFromPool(0);
+  EXPECT_EQ(stream.priority(), 0);
+  stream = c10::xpu::getStreamFromPool(1);
+  EXPECT_EQ(stream.priority(), 1);
+  stream = c10::xpu::getStreamFromPool(10);
+  EXPECT_EQ(stream.priority(), 1);
 
   if (c10::xpu::device_count() <= 1) {
     return;
@@ -232,6 +245,15 @@ TEST(XPUStreamTest, ExternalStream) {
       c10::xpu::asyncHandler,
       {});
   ASSERT_THROW(c10::xpu::getStreamFromExternal(ext_queue3, 0), c10::Error);
+  sycl::queue ext_queue4 = sycl::queue(
+      c10::xpu::get_device_context(),
+      c10::xpu::get_raw_device(0),
+      c10::xpu::asyncHandler,
+      {sycl::property::queue::in_order(),
+       sycl::ext::oneapi::property::queue::priority_low()});
+  c10::xpu::XPUStream ext_stream7 =
+      c10::xpu::getStreamFromExternal(ext_queue4, 0);
+  EXPECT_EQ(ext_stream7.priority(), 1);
 }
 
 TEST(XPUStreamTest, MultiDeviceExternalStream) {
