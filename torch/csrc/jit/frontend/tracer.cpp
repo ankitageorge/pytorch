@@ -820,9 +820,7 @@ void addInputs(Node* n, const char* name, std::optional<c10::SymInt> value) {
   addInputs(
       n,
       name,
-      value.has_value()
-          ? std::make_optional(value->guard_int(__FILE__, __LINE__))
-          : std::nullopt);
+      value.has_value() ? value->guard_int(__FILE__, __LINE__) : std::nullopt);
 }
 
 void addInputs(
