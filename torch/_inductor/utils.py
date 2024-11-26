@@ -2223,6 +2223,8 @@ def boolean_ops():
         "gt",
         "eq",
         "ne",
+        "or_",  # TODO should remove this op
+        "xor",
     )
 
 
