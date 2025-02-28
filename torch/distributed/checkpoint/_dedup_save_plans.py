@@ -3,7 +3,7 @@ import dataclasses
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from torch.distributed.checkpoint.planner import SavePlan, WriteItem
+from torch.distributed.checkpoint.planner import _FqnToFileMapping, SavePlan, WriteItem
 
 
 if TYPE_CHECKING:
@@ -17,10 +17,22 @@ def dedup_save_plans(
     save_to_lowest_rank: bool = False,
 ) -> list[SavePlan]:
     """
-    Removes duplicate entries from appearing on multiple SavePlans. For each duplicate across
+    Removes duplicate entries from appearing on multiple SavePlans. By default if duplicate across
     a set of SavePlans, only the smallest SavePlan in terms of planned storage keeps the entry.
+    Users can override this behavior by setting a StorageMapping object in the plans to indicate
+    a specific file/rank to save the entry to.
     """
 
+    if isinstance(all_plans[0].storage_data, _FqnToFileMapping):
+        return _dedup_save_plans_mapping_exists(all_plans)
+    else:
+        return _dedup_save_plans_default(all_plans, save_to_lowest_rank)
+
+
+def _dedup_save_plans_default(
+    all_plans: list[SavePlan],
+    save_to_lowest_rank: bool = False,
+) -> list[SavePlan]:
     write_item_to_plan_indices: dict[MetadataIndex, set[int]] = defaultdict(set)
     write_item_idx_to_write_item: dict[MetadataIndex, WriteItem] = {}
     for plan_idx, plan in enumerate(all_plans):
@@ -54,6 +66,31 @@ def dedup_save_plans(
             write_item
             for write_item in all_plans[plan_idx].items
             if write_item.index not in remove_set
+        ]
+        all_plans[plan_idx] = dataclasses.replace(all_plans[plan_idx], items=new_items)
+
+    return all_plans
+
+
+def _dedup_save_plans_mapping_exists(
+    all_plans: list[SavePlan],
+) -> list[SavePlan]:
+    fqn_to_index_mapping: dict[str, int] = all_plans[
+        0
+    ].storage_data.fqn_to_file_index_mapping
+    num_plans = len(all_plans)
+
+    to_remove: list[set] = [set() for _ in range(len(all_plans))]
+    for plan_idx, plan in enumerate(all_plans):
+        for item_idx, item in enumerate(plan.items):
+            if (fqn_to_index_mapping[item.index.fqn] - 1) % num_plans != plan_idx:
+                to_remove[plan_idx].add(item_idx)
+
+    for plan_idx, remove_set in enumerate(to_remove):
+        new_items = [
+            write_item
+            for item_idx, write_item in enumerate(all_plans[plan_idx].items)
+            if item_idx not in remove_set
         ]
         all_plans[plan_idx] = dataclasses.replace(all_plans[plan_idx], items=new_items)
 

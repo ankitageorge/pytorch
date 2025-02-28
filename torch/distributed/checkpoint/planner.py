@@ -109,6 +109,11 @@ class LoadPlan:
     planner_data: Any = None
 
 
+@dataclass
+class _FqnToFileMapping:
+    fqn_to_file_index_mapping: dict[str, int]
+
+
 class SavePlanner(abc.ABC):
     """
     Abstract class defining the protocol used by save_state_dict to plan the save process.
