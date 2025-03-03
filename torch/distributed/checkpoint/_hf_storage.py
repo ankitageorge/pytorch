@@ -4,8 +4,6 @@ import json
 import queue
 from typing import Optional
 
-import fsspec  # type: ignore[import-untyped]
-
 from torch.distributed.checkpoint._fsspec_filesystem import FsspecReader, FsspecWriter
 from torch.distributed.checkpoint.metadata import (
     BytesStorageMetadata,
@@ -55,6 +53,7 @@ class _HuggingFaceStorageWriter(FsspecWriter):
                               Indices are from 1 to N, where N is the number of files.
 
         """
+        import fsspec  # type: ignore[import-untyped]
         from huggingface_hub import HfFileSystem  # type: ignore[import-not-found]
 
         if HfFileSystem.protocol not in fsspec.available_protocols():
@@ -149,6 +148,7 @@ class _HuggingFaceStorageReader(FsspecReader):
             path: hf directory where the checkpoint will be read from. Should begin with hf://.
             token: The token to use to authenticate with huggingface hub.
         """
+        import fsspec  # type: ignore[import-untyped]
         from huggingface_hub import HfFileSystem  # type: ignore[import-not-found]
 
         if HfFileSystem.protocol not in fsspec.available_protocols():
